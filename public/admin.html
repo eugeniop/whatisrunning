@@ -5,100 +5,204 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Train Admin</title>
 <style>
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:18px;max-width:980px}
-h1{margin:0 0 10px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-label{display:block;font-size:14px;color:#333;margin:10px 0 6px}
-input,select,textarea,button{width:100%;padding:10px;font-size:16px}
-textarea{min-height:70px}
-.actions{display:flex;gap:10px;margin-top:12px}
-button{cursor:pointer}
-.card{border:1px solid #ddd;border-radius:12px;padding:12px;margin-top:14px}
-.small{color:#666;font-size:13px}
-.list{margin-top:16px}
-.item{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #eee;border-radius:12px;padding:10px;margin:10px 0}
-.item .meta{display:flex;flex-direction:column}
-.item button{width:auto}
-@media(max-width:800px){ .row{grid-template-columns:1fr} }
+*{box-sizing:border-box}
+body{
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  margin:0;
+  background:#f6f7fb;
+  color:#1f2933;
+}
+.page{
+  max-width:1100px;
+  margin:0 auto;
+  padding:18px 18px 32px;
+}
+h1{margin:0 0 10px;font-size:28px}
+h2{margin:0 0 6px;font-size:22px}
+.row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:14px 16px;
+  align-items:end;
+}
+label{display:block;font-size:14px;color:#344152;margin:10px 0 6px;font-weight:650}
+input,select,textarea,button{
+  width:100%;
+  padding:11px 12px;
+  font-size:16px;
+  border-radius:10px;
+  border:1px solid #d4d8e0;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid #8ab5ff;outline-offset:1px;border-color:#8ab5ff}
+textarea{min-height:82px;resize:vertical}
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+button{
+  cursor:pointer;
+  border:none;
+  background:#0f60d8;
+  color:white;
+  font-weight:700;
+  box-shadow:0 6px 16px rgba(15,96,216,.18);
+  transition:.1s ease;
+}
+button[type="button"]{background:#e4e7ee;color:#1f2933;box-shadow:none}
+button:hover{transform:translateY(-1px)}
+.card{
+  border:1px solid #d8dce5;
+  border-radius:14px;
+  padding:14px;
+  margin-top:14px;
+  background:white;
+  box-shadow:0 10px 24px rgba(0,0,0,.04);
+}
+.small{color:#5b6573;font-size:13px}
+.hint{margin-top:6px;font-size:13px;color:#5b6573}
+.list{margin-top:20px}
+.item{
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  gap:12px;
+  border:1px solid #e2e5ed;
+  border-radius:12px;
+  padding:12px;
+  margin:10px 0;
+  background:#f9fafc;
+}
+.item .meta{display:flex;flex-direction:column;gap:4px}
+.item .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.item button{width:120px}
+.badge{
+  display:inline-block;
+  font-size:13px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#eef2fb;
+  color:#33405a;
+  border:1px solid #dfe3ee;
+  width:max-content;
+}
+.list .small{margin-bottom:6px}
+@media(max-width:960px){
+  .page{padding:18px 14px 28px}
+  .item{grid-template-columns:1fr;align-items:flex-start}
+  .item button{width:100%}
+}
 </style>
 </head>
 <body>
+<div class="page">
 
-<h1>Train Admin</h1>
-<div class="small">Add a train as “running”. Public display updates instantly.</div>
+  <h1>Train Admin</h1>
+  <div class="small">Add a train as “running”. Public display updates instantly.</div>
 
-<div class="card">
-  <div class="row">
-    <div>
-      <label>Train name</label>
-      <input id="name" placeholder="BR 01 Express" />
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="name">Train name</label>
+        <input id="name" placeholder="BR 01 Express" />
+      </div>
+      <div>
+        <label for="railway">Railway</label>
+        <input id="railway" placeholder="Deutsche Bundesbahn" />
+      </div>
     </div>
-    <div>
-      <label>Railway</label>
-      <input id="railway" placeholder="Deutsche Bundesbahn" />
+
+    <div class="row">
+      <div>
+        <label for="country">Country (emoji flag)</label>
+        <input id="country" list="flagOptions" placeholder="🇩🇪" />
+        <datalist id="flagOptions">
+          <option value="🇩🇪">Germany</option>
+          <option value="🇺🇸">United States</option>
+          <option value="🇬🇧">United Kingdom</option>
+          <option value="🇫🇷">France</option>
+          <option value="🇪🇸">Spain</option>
+          <option value="🇮🇹">Italy</option>
+          <option value="🇨🇭">Switzerland</option>
+          <option value="🇳🇱">Netherlands</option>
+          <option value="🇧🇪">Belgium</option>
+          <option value="🇨🇦">Canada</option>
+          <option value="🇦🇹">Austria</option>
+          <option value="🇵🇱">Poland</option>
+          <option value="🇨🇿">Czechia</option>
+          <option value="🇸🇪">Sweden</option>
+          <option value="🇫🇮">Finland</option>
+          <option value="🇳🇴">Norway</option>
+          <option value="🇯🇵">Japan</option>
+          <option value="🇨🇳">China</option>
+          <option value="🇦🇺">Australia</option>
+          <option value="🇳🇿">New Zealand</option>
+          <option value="🇧🇷">Brazil</option>
+          <option value="🇲🇽">Mexico</option>
+          <option value="🇿🇦">South Africa</option>
+          <option value="🇮🇳">India</option>
+          <option value="🏳️">Other / Custom</option>
+        </datalist>
+        <div class="hint">Choose a flag or type any emoji or string.</div>
+      </div>
+      <div>
+        <label for="years">Years (e.g. 1950 or 1950–1960)</label>
+        <input id="years" placeholder="1950–1960" />
+      </div>
     </div>
+
+    <div class="row">
+      <div>
+        <label for="power">Power</label>
+        <select id="power">
+          <option>Steam</option>
+          <option>Diesel</option>
+          <option>Electric</option>
+        </select>
+      </div>
+      <div>
+        <label for="trainType">Train type</label>
+        <select id="trainType">
+          <option>Passenger</option>
+          <option>Freight</option>
+          <option>Special</option>
+          <option>Mixed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="location">Location</label>
+        <select id="location">
+          <option>Upper loop</option>
+          <option>Lower loop 1</option>
+          <option>Lower loop 2</option>
+        </select>
+      </div>
+      <div>
+        <label for="owner">Owner (stored only; not shown publicly)</label>
+        <input id="owner" placeholder="Member name" />
+      </div>
+    </div>
+
+    <label for="notes">Notes</label>
+    <textarea id="notes" placeholder="8-car express, manifest freight, etc."></textarea>
+
+    <div class="actions">
+      <button onclick="addTrain()">Add / Set Running</button>
+      <button onclick="clearForm()" type="button">Clear</button>
+    </div>
+
+    <div class="small" id="status"></div>
   </div>
 
-  <div class="row">
-    <div>
-      <label>Country (emoji flag)</label>
-      <input id="country" placeholder="🇩🇪" />
-    </div>
-    <div>
-      <label>Years (e.g. 1950 or 1950–1960)</label>
-      <input id="years" placeholder="1950–1960" />
-    </div>
+  <div class="list">
+    <h2>Currently Running</h2>
+    <div class="small">Shows live and mirrors the visitor display.</div>
+    <div id="running"></div>
   </div>
-
-  <div class="row">
-    <div>
-      <label>Power</label>
-      <select id="power">
-        <option>Steam</option>
-        <option>Diesel</option>
-        <option>Electric</option>
-      </select>
-    </div>
-    <div>
-      <label>Train type</label>
-      <select id="trainType">
-        <option>Passenger</option>
-        <option>Freight</option>
-        <option>Special</option>
-        <option>Mixed</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="row">
-    <div>
-      <label>Location</label>
-      <select id="location">
-        <option>Upper loop</option>
-        <option>Lower loop 1</option>
-        <option>Lower loop 2</option>
-      </select>
-    </div>
-    <div>
-      <label>Owner (stored only; not shown publicly)</label>
-      <input id="owner" placeholder="Member name" />
-    </div>
-  </div>
-
-  <label>Notes</label>
-  <textarea id="notes" placeholder="8-car express, manifest freight, etc."></textarea>
-
-  <div class="actions">
-    <button onclick="addTrain()">Add / Set Running</button>
-    <button onclick="clearForm()" type="button">Clear</button>
-  </div>
-
-  <div class="small" id="status"></div>
-</div>
-
-<div class="list">
-  <h2>Currently Running</h2>
-  <div id="running"></div>
 </div>
 
 <script>
@@ -122,7 +226,13 @@ async function refresh(){
     <div class="item">
       <div class="meta">
         <strong>${escapeHtml(t.country)} ${escapeHtml(t.name)}</strong>
-        <span class="small">${escapeHtml(t.railway)} • ${escapeHtml(t.power)} • ${escapeHtml(t.trainType)} • ${escapeHtml(t.years)} • ${escapeHtml(t.location)}</span>
+        <span class="small">${escapeHtml(t.railway)}</span>
+        <div class="tags">
+          <span class="badge">${escapeHtml(t.power)}</span>
+          <span class="badge">${escapeHtml(t.trainType)}</span>
+          <span class="badge">${escapeHtml(t.years)}</span>
+          <span class="badge">📍 ${escapeHtml(t.location)}</span>
+        </div>
       </div>
       <button onclick="stopTrain('${t.id}')">Stop</button>
     </div>
