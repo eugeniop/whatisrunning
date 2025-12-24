@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trains Currently Running</title>
+
+<style>
+:root{
+  --bg:#0b0f14;
+  --text:#e9f0ff;
+  --muted:#a7b3c7;
+  --good:#34d399;
+  --border:rgba(255,255,255,.10);
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --radius:18px;
+
+  --h1:42px;
+  --h2:26px;
+  --p:20px;
+  --small:17px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  background:radial-gradient(1200px 700px at 20% 10%,rgba(125,211,252,.10),transparent 60%),var(--bg);
+  color:var(--text);
+}
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  padding:24px 36px 16px;
+  border-bottom:1px solid var(--border);
+}
+h1{margin:0;font-size:var(--h1)}
+.subtitle{color:var(--muted);font-size:var(--small)}
+main{padding:24px 36px 36px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+  gap:16px;
+}
+.card{
+  background:linear-gradient(180deg,rgba(18,26,36,.92),rgba(15,22,32,.92));
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  position:relative;
+}
+.flag{
+  position:absolute;
+  top:12px; right:14px;
+  font-size:44px;
+  line-height:1;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,.35));
+}
+.trainName{
+  font-size:var(--h2);
+  font-weight:750;
+  margin:0;
+  padding-right:54px;
+}
+.railwayLine{font-size:var(--p);color:var(--muted)}
+.badges{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:4px;
+  align-items:center;
+}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:var(--small);
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+}
+.badge .icon{font-size:18px}
+.years{
+  background:rgba(125,211,252,.08);
+  border-color:rgba(125,211,252,.35);
+}
+.livePill{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid rgba(52,211,153,.35);
+  background:rgba(52,211,153,.10);
+  color:var(--good);
+  font-size:var(--small);
+  font-weight:750;
+  white-space:nowrap;
+}
+.dot{
+  width:9px;height:9px;border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 12px currentColor;
+}
+.notes{
+  margin-top:6px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.03);
+  font-size:var(--p);
+  font-weight:650;
+}
+.empty{
+  border:1px dashed rgba(255,255,255,.20);
+  border-radius:16px;
+  padding:18px;
+  color:var(--muted);
+  font-size:var(--p);
+}
+@media(max-width:520px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+
+<body>
+<header>
+  <div>
+    <h1>Trains Currently Running</h1>
+    <div class="subtitle">Visitor display • live</div>
+  </div>
+  <div class="subtitle" id="clock"></div>
+</header>
+
+<main>
+  <div class="grid" id="trainGrid"></div>
+</main>
+
+<script>
+const powerIcon = (p) => ({Steam:"🚂",Diesel:"🚆",Electric:"⚡"}[p] || "🚆");
+const typeIcon  = (t) => ({Passenger:"👥",Freight:"📦",Special:"⭐",Mixed:"🚃"}[t] || "🚃");
+
+function cardHTML(t){
+  return `
+    <article class="card">
+      <div class="flag" title="Country">${t.country}</div>
+      <h2 class="trainName">${escapeHtml(t.name)}</h2>
+      <div class="railwayLine">${escapeHtml(t.railway)}</div>
+
+      <div class="badges">
+        <span class="badge"><span class="icon">${powerIcon(t.power)}</span>${escapeHtml(t.power)}</span>
+        <span class="badge"><span class="icon">${typeIcon(t.trainType)}</span>${escapeHtml(t.trainType)}</span>
+        <span class="badge years"><span class="icon">📅</span>${escapeHtml(t.years)}</span>
+
+        <span class="livePill"><span class="dot"></span>LIVE • ${escapeHtml(t.location)}</span>
+      </div>
+
+      <div class="notes">${escapeHtml(t.notes || "")}</div>
+    </article>
+  `;
+}
+
+function render(trains){
+  const grid = document.getElementById("trainGrid");
+  if (!trains || trains.length === 0){
+    grid.innerHTML = `<div class="empty">No trains are currently registered as running.</div>`;
+    return;
+  }
+  grid.innerHTML = trains.map(cardHTML).join("");
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+async function load(){
+  const res = await fetch("/api/running");
+  const data = await res.json();
+  render(data.trains);
+}
+
+function connectWS(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.event === "running:init" || msg.event === "running:update"){
+        render(msg.payload);
+      }
+    } catch {}
+  };
+  ws.onclose = () => setTimeout(connectWS, 1500);
+}
+
+function clock(){
+  const d=new Date();
+  document.getElementById("clock").textContent =
+    d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+}
+
+load();
+connectWS();
+clock();
+setInterval(clock,1000);
+</script>
+</body>
+</html>

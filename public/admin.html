@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Train Admin</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:18px;max-width:980px}
+h1{margin:0 0 10px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:14px;color:#333;margin:10px 0 6px}
+input,select,textarea,button{width:100%;padding:10px;font-size:16px}
+textarea{min-height:70px}
+.actions{display:flex;gap:10px;margin-top:12px}
+button{cursor:pointer}
+.card{border:1px solid #ddd;border-radius:12px;padding:12px;margin-top:14px}
+.small{color:#666;font-size:13px}
+.list{margin-top:16px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #eee;border-radius:12px;padding:10px;margin:10px 0}
+.item .meta{display:flex;flex-direction:column}
+.item button{width:auto}
+@media(max-width:800px){ .row{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<h1>Train Admin</h1>
+<div class="small">Add a train as “running”. Public display updates instantly.</div>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label>Train name</label>
+      <input id="name" placeholder="BR 01 Express" />
+    </div>
+    <div>
+      <label>Railway</label>
+      <input id="railway" placeholder="Deutsche Bundesbahn" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Country (emoji flag)</label>
+      <input id="country" placeholder="🇩🇪" />
+    </div>
+    <div>
+      <label>Years (e.g. 1950 or 1950–1960)</label>
+      <input id="years" placeholder="1950–1960" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Power</label>
+      <select id="power">
+        <option>Steam</option>
+        <option>Diesel</option>
+        <option>Electric</option>
+      </select>
+    </div>
+    <div>
+      <label>Train type</label>
+      <select id="trainType">
+        <option>Passenger</option>
+        <option>Freight</option>
+        <option>Special</option>
+        <option>Mixed</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Location</label>
+      <select id="location">
+        <option>Upper loop</option>
+        <option>Lower loop 1</option>
+        <option>Lower loop 2</option>
+      </select>
+    </div>
+    <div>
+      <label>Owner (stored only; not shown publicly)</label>
+      <input id="owner" placeholder="Member name" />
+    </div>
+  </div>
+
+  <label>Notes</label>
+  <textarea id="notes" placeholder="8-car express, manifest freight, etc."></textarea>
+
+  <div class="actions">
+    <button onclick="addTrain()">Add / Set Running</button>
+    <button onclick="clearForm()" type="button">Clear</button>
+  </div>
+
+  <div class="small" id="status"></div>
+</div>
+
+<div class="list">
+  <h2>Currently Running</h2>
+  <div id="running"></div>
+</div>
+
+<script>
+async function api(path, opts){
+  const res = await fetch(path, { headers:{ "Content-Type":"application/json" }, ...opts });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+function val(id){ return document.getElementById(id).value.trim(); }
+
+async function refresh(){
+  const data = await api("/api/running");
+  const root = document.getElementById("running");
+  if (!data.trains.length){
+    root.innerHTML = `<div class="small">No running trains.</div>`;
+    return;
+  }
+  root.innerHTML = data.trains.map(t => `
+    <div class="item">
+      <div class="meta">
+        <strong>${escapeHtml(t.country)} ${escapeHtml(t.name)}</strong>
+        <span class="small">${escapeHtml(t.railway)} • ${escapeHtml(t.power)} • ${escapeHtml(t.trainType)} • ${escapeHtml(t.years)} • ${escapeHtml(t.location)}</span>
+      </div>
+      <button onclick="stopTrain('${t.id}')">Stop</button>
+    </div>
+  `).join("");
+}
+
+async function addTrain(){
+  const body = {
+    name: val("name"),
+    railway: val("railway"),
+    country: val("country"),
+    power: val("power"),
+    trainType: val("trainType"),
+    years: val("years"),
+    notes: document.getElementById("notes").value.trim(),
+    owner: val("owner"),
+    location: val("location")
+  };
+
+  const status = document.getElementById("status");
+  status.textContent = "Saving…";
+  try{
+    await api("/api/running", { method:"POST", body: JSON.stringify(body) });
+    status.textContent = "Saved. Display updated.";
+    await refresh();
+  }catch(e){
+    status.textContent = "Error: " + e.message;
+  }
+}
+
+async function stopTrain(id){
+  if (!confirm("Mark this train as stopped?")) return;
+  try{
+    await api(`/api/running/${id}`, { method:"DELETE" });
+    await refresh();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+function clearForm(){
+  ["name","railway","country","years","owner"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("notes").value = "";
+  document.getElementById("status").textContent = "";
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+refresh();
+</script>
+
+</body>
+</html>
