@@ -25,6 +25,25 @@ CREATE TABLE IF NOT EXISTS trains (
 
 CREATE INDEX IF NOT EXISTS idx_trains_active ON trains(active);
 CREATE INDEX IF NOT EXISTS idx_trains_updated ON trains(updated_at);
+
+CREATE TABLE IF NOT EXISTS train_runs (
+  id TEXT PRIMARY KEY,
+  train_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  railway TEXT NOT NULL,
+  country TEXT NOT NULL,
+  power TEXT NOT NULL,
+  trainType TEXT NOT NULL,
+  years TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  owner TEXT NOT NULL DEFAULT '',
+  location TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  stop_time TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_train_runs_train ON train_runs(train_id);
+CREATE INDEX IF NOT EXISTS idx_train_runs_start ON train_runs(start_time);
 `);
 
 module.exports = { db };
