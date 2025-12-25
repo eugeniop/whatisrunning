@@ -111,6 +111,7 @@ function validateTrain(body) {
 // Pages
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
+app.get("/activity", (req, res) => res.sendFile(path.join(__dirname, "public", "activity.html")));
 
 // API
 app.get("/api/running", (req, res) => {
