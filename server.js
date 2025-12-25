@@ -40,6 +40,11 @@ const stmtInsert = db.prepare(`
   VALUES (@id, @name, @railway, @country, @power, @trainType, @years, @notes, @owner, @location, 1, @updated_at)
 `);
 
+const stmtInsertRun = db.prepare(`
+  INSERT INTO train_runs (id, train_id, name, railway, country, power, trainType, years, notes, owner, location, start_time, stop_time)
+  VALUES (@id, @train_id, @name, @railway, @country, @power, @trainType, @years, @notes, @owner, @location, @start_time, @stop_time)
+`);
+
 const stmtUpdate = db.prepare(`
   UPDATE trains SET
     name=@name, railway=@railway, country=@country, power=@power, trainType=@trainType,
@@ -52,6 +57,30 @@ const stmtDeactivate = db.prepare(`
 `);
 
 const stmtGetById = db.prepare(`SELECT * FROM trains WHERE id = ?`);
+const stmtFindOpenRun = db.prepare(`
+  SELECT id FROM train_runs
+  WHERE train_id = ? AND stop_time IS NULL
+  ORDER BY start_time DESC
+  LIMIT 1
+`);
+
+const stmtFindLatestRun = db.prepare(`
+  SELECT id FROM train_runs
+  WHERE train_id = ?
+  ORDER BY start_time DESC
+  LIMIT 1
+`);
+
+const stmtUpdateRunStop = db.prepare(`
+  UPDATE train_runs SET stop_time=@stop_time WHERE id=@id
+`);
+
+const stmtRunsByDate = db.prepare(`
+  SELECT train_id, name, railway, country, power, trainType, years, notes, owner, location, start_time, stop_time
+  FROM train_runs
+  WHERE date(start_time) = @date
+  ORDER BY start_time ASC
+`);
 
 // Validation
 function bad(res, msg) {
@@ -98,6 +127,22 @@ app.post("/api/running", (req, res) => {
   const row = { id, updated_at, ...req.body, notes: req.body.notes ?? "", owner: req.body.owner ?? "" };
   stmtInsert.run(row);
 
+  stmtInsertRun.run({
+    id: crypto.randomUUID(),
+    train_id: id,
+    name: row.name,
+    railway: row.railway,
+    country: row.country,
+    power: row.power,
+    trainType: row.trainType,
+    years: row.years,
+    notes: row.notes,
+    owner: row.owner,
+    location: row.location,
+    start_time: updated_at,
+    stop_time: null
+  });
+
   const payload = stmtListRunning.all();
   broadcast("running:update", payload);
 
@@ -128,12 +173,65 @@ app.delete("/api/running/:id", (req, res) => {
   const existing = stmtGetById.get(id);
   if (!existing) return res.status(404).json({ error: "not found" });
 
-  stmtDeactivate.run({ id, updated_at: new Date().toISOString() });
+  const stop_time = new Date().toISOString();
+  stmtDeactivate.run({ id, updated_at: stop_time });
+  const openRun = stmtFindOpenRun.get(id);
+  if (openRun) {
+    stmtUpdateRunStop.run({ id: openRun.id, stop_time });
+  } else {
+    const latest = stmtFindLatestRun.get(id);
+    const fallbackId = latest?.id;
+    if (fallbackId) {
+      stmtUpdateRunStop.run({ id: fallbackId, stop_time });
+    } else {
+      stmtInsertRun.run({
+        id: crypto.randomUUID(),
+        train_id: id,
+        name: existing.name,
+        railway: existing.railway,
+        country: existing.country,
+        power: existing.power,
+        trainType: existing.trainType,
+        years: existing.years,
+        notes: existing.notes,
+        owner: existing.owner,
+        location: existing.location,
+        start_time: stop_time,
+        stop_time
+      });
+    }
+  }
 
   const payload = stmtListRunning.all();
   broadcast("running:update", payload);
 
   res.json({ ok: true });
+});
+
+app.get("/api/reports/runs", (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return bad(res, "date query param (YYYY-MM-DD) is required");
+  }
+
+  const rows = stmtRunsByDate.all({ date });
+  const report = rows.map((r) => {
+    const start = new Date(r.start_time);
+    const end = r.stop_time ? new Date(r.stop_time) : new Date();
+    const durationMinutes = Math.max(0, Math.round((end - start) / 60000));
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    return {
+      ...r,
+      duration: {
+        minutes: durationMinutes,
+        hours,
+        remainderMinutes: minutes
+      }
+    };
+  });
+
+  res.json({ runs: report });
 });
 
 // WebSocket connections
