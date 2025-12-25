@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Train Activity</title>
+<style>
+:root{
+  --bg:#0b0f14;
+  --panel:#101722;
+  --text:#e9f0ff;
+  --muted:#a7b3c7;
+  --border:rgba(255,255,255,.12);
+  --accent:#8ab5ff;
+  --good:#34d399;
+  --shadow:0 12px 32px rgba(0,0,0,.35);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+  background:radial-gradient(1200px 700px at 20% 10%,rgba(138,181,255,.10),transparent 60%),var(--bg);
+  color:var(--text);
+}
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  padding:24px 32px 18px;
+  border-bottom:1px solid var(--border);
+}
+h1{margin:0;font-size:36px;letter-spacing:-.01em}
+.subtitle{color:var(--muted);font-size:17px;margin-top:6px}
+.page{max-width:1100px;margin:0 auto;padding:24px 18px 34px}
+.controls{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  background:linear-gradient(180deg,rgba(32,44,64,.65),rgba(20,30,45,.9));
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  box-shadow:var(--shadow);
+}
+.controls label{font-size:15px;color:var(--muted)}
+input[type="date"]{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:16px;
+}
+.grid{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+}
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.cardHeader{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.flag{font-size:32px;line-height:1;margin-right:8px}
+.titleRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.trainName{margin:0;font-size:22px;letter-spacing:-.01em}
+.railway{color:var(--muted);font-size:16px;margin-top:2px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:14px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+}
+.badge .icon{font-size:17px}
+.duration{
+  text-align:right;
+  min-width:140px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-end;
+}
+.timeRange{font-weight:700;letter-spacing:.01em}
+.ongoing{color:var(--good)}
+.notes{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:10px 12px;
+  background:rgba(255,255,255,.03);
+  font-size:15px;
+}
+.empty{color:var(--muted);font-size:16px;border:1px dashed var(--border);border-radius:14px;padding:16px;text-align:center}
+.error{color:#fca5a5;font-weight:700}
+.pill{border:1px solid rgba(138,181,255,.5);background:rgba(138,181,255,.12);}
+.small{font-size:14px;color:var(--muted)}
+@media(max-width:720px){
+  header{flex-direction:column;align-items:flex-start;gap:8px}
+  .cardHeader{flex-direction:column;align-items:flex-start}
+  .duration{text-align:left;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Train Activity</h1>
+      <div class="subtitle">View every run for a selected day.</div>
+    </div>
+    <a class="subtitle" href="/">← Back to live display</a>
+  </header>
+
+  <div class="page">
+    <div class="controls">
+      <label for="date">Choose a date</label>
+      <input id="date" type="date" />
+      <div class="small" id="status"></div>
+    </div>
+
+    <div class="grid" id="runs"></div>
+  </div>
+
+<script>
+const powerIcon = (p) => ({Steam:"🚂",Diesel:"🚆",Electric:"⚡"}[p] || "🚆");
+const typeIcon  = (t) => ({Passenger:"👥",Freight:"📦",Special:"⭐",Mixed:"🚃"}[t] || "🚃");
+
+function toLocalDateInput(d=new Date()){
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0,10);
+}
+
+function formatTime(iso){
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function render(runs){
+  const root = document.getElementById("runs");
+  if (!runs.length){
+    root.innerHTML = `<div class="empty">No train activity recorded for this date.</div>`;
+    return;
+  }
+
+  root.innerHTML = runs.map(r => {
+    const stopLabel = r.stop_time ? formatTime(r.stop_time) : "Still running";
+    const ongoing = !r.stop_time;
+    const duration = r.duration ? `${r.duration.hours}h ${r.duration.remainderMinutes.toString().padStart(2,"0")}m` : "";
+
+    return `
+      <article class="card">
+        <div class="cardHeader">
+          <div>
+            <div class="titleRow">
+              <span class="flag" title="Country">${escapeHtml(r.country)}</span>
+              <h2 class="trainName">${escapeHtml(r.name)}</h2>
+              <span class="badge pill"><span class="icon">📍</span>${escapeHtml(r.location)}</span>
+            </div>
+            <div class="railway">${escapeHtml(r.railway)}</div>
+            <div class="badges">
+              <span class="badge"><span class="icon">${powerIcon(r.power)}</span>${escapeHtml(r.power)}</span>
+              <span class="badge"><span class="icon">${typeIcon(r.trainType)}</span>${escapeHtml(r.trainType)}</span>
+              <span class="badge"><span class="icon">📅</span>${escapeHtml(r.years)}</span>
+            </div>
+          </div>
+          <div class="duration">
+            <div class="timeRange">${formatTime(r.start_time)} → ${ongoing ? "—" : stopLabel}</div>
+            <div class="small ${ongoing ? "ongoing" : ""}">${ongoing ? "Still running" : stopLabel}</div>
+            ${duration ? `<div class="small">Duration: ${duration}</div>` : ""}
+          </div>
+        </div>
+        ${r.notes ? `<div class="notes">${escapeHtml(r.notes)}</div>` : ""}
+      </article>
+    `;
+  }).join("");
+}
+
+async function loadRuns(date){
+  const status = document.getElementById("status");
+  status.textContent = "Loading…";
+  try{
+    const res = await fetch(`/api/reports/runs?date=${encodeURIComponent(date)}`);
+    if (!res.ok) throw new Error("Unable to load runs");
+    const data = await res.json();
+    render(data.runs || []);
+    status.textContent = `Showing activity for ${date}`;
+  }catch(e){
+    document.getElementById("runs").innerHTML = `<div class="empty error">${escapeHtml(e.message)}</div>`;
+    status.textContent = "";
+  }
+}
+
+const dateInput = document.getElementById("date");
+dateInput.value = toLocalDateInput();
+dateInput.addEventListener("change", (ev) => {
+  if (ev.target.value) loadRuns(ev.target.value);
+});
+
+loadRuns(dateInput.value);
+</script>
+</body>
+</html>
