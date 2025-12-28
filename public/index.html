@@ -147,6 +147,7 @@ main{padding:24px 36px 36px}
 <script>
 const powerIcon = (p) => ({Steam:"🚂",Diesel:"🚆",Electric:"⚡"}[p] || "🚆");
 const typeIcon  = (t) => ({Passenger:"👥",Freight:"📦",Special:"⭐",Mixed:"🚃"}[t] || "🚃");
+const powerTypeIcon = (t) => ({AC:"🔌",DC:"🔋",Digital:"💻"}[t] || "🔌");
 
 function cardHTML(t){
   return `
@@ -158,6 +159,8 @@ function cardHTML(t){
       <div class="badges">
         <span class="badge"><span class="icon">${powerIcon(t.power)}</span>${escapeHtml(t.power)}</span>
         <span class="badge"><span class="icon">${typeIcon(t.trainType)}</span>${escapeHtml(t.trainType)}</span>
+        <span class="badge"><span class="icon">🚃</span>${escapeHtml(t.numberOfCars)} cars</span>
+        <span class="badge"><span class="icon">${powerTypeIcon(t.powerType)}</span>${escapeHtml(t.powerType)}</span>
         <span class="badge years"><span class="icon">📅</span>${escapeHtml(t.years)}</span>
 
         <span class="livePill"><span class="dot"></span>LIVE • ${escapeHtml(t.location)}</span>
