@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS trains (
   country TEXT NOT NULL,         -- emoji flag, e.g. 🇩🇪
   power TEXT NOT NULL,           -- Steam/Diesel/Electric
   trainType TEXT NOT NULL,       -- Passenger/Freight/Special/Mixed
+  numberOfCars INTEGER NOT NULL DEFAULT 0, -- 0-100 inclusive
+  powerType TEXT NOT NULL DEFAULT 'AC',    -- AC/DC/Digital
   years TEXT NOT NULL,           -- e.g. 1950 or 1950–1960
   notes TEXT NOT NULL DEFAULT '',
   owner TEXT NOT NULL DEFAULT '', -- stored, not shown on display
@@ -34,6 +36,8 @@ CREATE TABLE IF NOT EXISTS train_runs (
   country TEXT NOT NULL,
   power TEXT NOT NULL,
   trainType TEXT NOT NULL,
+  numberOfCars INTEGER NOT NULL DEFAULT 0,
+  powerType TEXT NOT NULL DEFAULT 'AC',
   years TEXT NOT NULL,
   notes TEXT NOT NULL DEFAULT '',
   owner TEXT NOT NULL DEFAULT '',
@@ -45,5 +49,18 @@ CREATE TABLE IF NOT EXISTS train_runs (
 CREATE INDEX IF NOT EXISTS idx_train_runs_train ON train_runs(train_id);
 CREATE INDEX IF NOT EXISTS idx_train_runs_start ON train_runs(start_time);
 `);
+
+function ensureColumn(table, name, definition){
+  const existing = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!existing.some((c) => c.name === name)){
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  }
+}
+
+// Lightweight migrations for added fields
+ensureColumn("trains", "numberOfCars", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("trains", "powerType", "TEXT NOT NULL DEFAULT 'AC'");
+ensureColumn("train_runs", "numberOfCars", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("train_runs", "powerType", "TEXT NOT NULL DEFAULT 'AC'");
 
 module.exports = { db };

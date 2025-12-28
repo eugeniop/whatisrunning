@@ -135,6 +135,7 @@ input[type="date"]{
 <script>
 const powerIcon = (p) => ({Steam:"🚂",Diesel:"🚆",Electric:"⚡"}[p] || "🚆");
 const typeIcon  = (t) => ({Passenger:"👥",Freight:"📦",Special:"⭐",Mixed:"🚃"}[t] || "🚃");
+const powerTypeIcon = (t) => ({AC:"🔌",DC:"🔋",Digital:"💻"}[t] || "🔌");
 
 function toLocalDateInput(d=new Date()){
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -180,6 +181,8 @@ function render(runs){
             <div class="badges">
               <span class="badge"><span class="icon">${powerIcon(r.power)}</span>${escapeHtml(r.power)}</span>
               <span class="badge"><span class="icon">${typeIcon(r.trainType)}</span>${escapeHtml(r.trainType)}</span>
+              <span class="badge"><span class="icon">🚃</span>${escapeHtml(r.numberOfCars)} cars</span>
+              <span class="badge"><span class="icon">${powerTypeIcon(r.powerType)}</span>${escapeHtml(r.powerType)}</span>
               <span class="badge"><span class="icon">📅</span>${escapeHtml(r.years)}</span>
             </div>
           </div>

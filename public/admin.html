@@ -162,6 +162,14 @@ button:hover{transform:translateY(-1px)}
         </select>
       </div>
       <div>
+        <label for="powerType">Power type</label>
+        <select id="powerType">
+          <option>AC</option>
+          <option>DC</option>
+          <option>Digital</option>
+        </select>
+      </div>
+      <div>
         <label for="trainType">Train type</label>
         <select id="trainType">
           <option>Passenger</option>
@@ -180,6 +188,10 @@ button:hover{transform:translateY(-1px)}
           <option>Lower loop 1</option>
           <option>Lower loop 2</option>
         </select>
+      </div>
+      <div>
+        <label for="numberOfCars">Number of cars (0-100)</label>
+        <input id="numberOfCars" type="number" min="0" max="100" step="1" value="0" />
       </div>
       <div>
         <label for="owner">Owner (stored only; not shown publicly)</label>
@@ -231,6 +243,8 @@ async function refresh(){
           <span class="badge">${escapeHtml(t.power)}</span>
           <span class="badge">${escapeHtml(t.trainType)}</span>
           <span class="badge">${escapeHtml(t.years)}</span>
+          <span class="badge">🚃 ${escapeHtml(t.numberOfCars)} cars</span>
+          <span class="badge">🔌 ${escapeHtml(t.powerType)}</span>
           <span class="badge">📍 ${escapeHtml(t.location)}</span>
         </div>
       </div>
@@ -245,7 +259,9 @@ async function addTrain(){
     railway: val("railway"),
     country: val("country"),
     power: val("power"),
+    powerType: val("powerType"),
     trainType: val("trainType"),
+    numberOfCars: Number(document.getElementById("numberOfCars").value),
     years: val("years"),
     notes: document.getElementById("notes").value.trim(),
     owner: val("owner"),
@@ -275,6 +291,8 @@ async function stopTrain(id){
 
 function clearForm(){
   ["name","railway","country","years","owner"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("numberOfCars").value = "0";
+  document.getElementById("powerType").value = "AC";
   document.getElementById("notes").value = "";
   document.getElementById("status").textContent = "";
 }
