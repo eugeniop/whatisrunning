@@ -84,6 +84,13 @@ const stmtRunsByDate = db.prepare(`
   ORDER BY start_time ASC
 `);
 
+const stmtRunsByRange = db.prepare(`
+  SELECT train_id, name, railway, country, power, trainType, numberOfCars, powerType, years, notes, owner, location, start_time, stop_time
+  FROM train_runs
+  WHERE date(start_time) BETWEEN @start AND @end
+  ORDER BY start_time ASC
+`);
+
 // Validation
 function bad(res, msg) {
   return res.status(400).json({ error: msg });
@@ -234,16 +241,34 @@ app.delete("/api/running/:id", (req, res) => {
 });
 
 app.get("/api/reports/runs", (req, res) => {
-  const { date } = req.query;
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return bad(res, "date query param (YYYY-MM-DD) is required");
+  const { date, start, end } = req.query;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  let rows = [];
+
+  if (date){
+    if (!dateRegex.test(date)) {
+      return bad(res, "date must match YYYY-MM-DD");
+    }
+    rows = stmtRunsByDate.all({ date });
+  } else if (start || end){
+    if (!start || !end) {
+      return bad(res, "start and end query params (YYYY-MM-DD) are required together");
+    }
+    if (!dateRegex.test(start) || !dateRegex.test(end)) {
+      return bad(res, "start and end must match YYYY-MM-DD");
+    }
+    if (start > end) {
+      return bad(res, "start must be on or before end");
+    }
+    rows = stmtRunsByRange.all({ start, end });
+  } else {
+    return bad(res, "Provide date (YYYY-MM-DD) or start/end (YYYY-MM-DD) query params");
   }
 
-  const rows = stmtRunsByDate.all({ date });
   const report = rows.map((r) => {
-    const start = new Date(r.start_time);
-    const end = r.stop_time ? new Date(r.stop_time) : new Date();
-    const durationMinutes = Math.max(0, Math.round((end - start) / 60000));
+    const runStart = new Date(r.start_time);
+    const runEnd = r.stop_time ? new Date(r.stop_time) : new Date();
+    const durationMinutes = Math.max(0, Math.round((runEnd - runStart) / 60000));
     const hours = Math.floor(durationMinutes / 60);
     const minutes = durationMinutes % 60;
     return {
