@@ -106,6 +106,47 @@ input[type="date"]{
 .error{color:#fca5a5;font-weight:700}
 .pill{border:1px solid rgba(138,181,255,.5);background:rgba(138,181,255,.12);}
 .small{font-size:14px;color:var(--muted)}
+.eyebrow{letter-spacing:.08em;text-transform:uppercase;font-size:12px;color:var(--muted);font-weight:750}
+.summary{
+  margin-top:18px;
+  background:linear-gradient(180deg,rgba(28,38,54,.85),rgba(16,23,34,.95));
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  box-shadow:var(--shadow);
+}
+.summaryHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.summaryGrid{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:12px;
+}
+.summaryCard{
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-height:120px;
+}
+.summaryTitle{font-weight:750;font-size:15px;letter-spacing:-.01em}
+.metricValue{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pillRow{display:flex;flex-wrap:wrap;gap:8px}
+.pillRow .pill{background:rgba(138,181,255,.10);border-color:rgba(138,181,255,.4)}
+.countryRow{display:flex;flex-wrap:wrap;gap:8px;font-size:24px}
+.distRow{display:flex;flex-direction:column;gap:6px}
+.distLabel{display:flex;align-items:center;gap:10px;font-weight:650}
+.distLabel .count{margin-left:auto;font-size:13px;color:var(--muted)}
+.bar{height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,rgba(138,181,255,.8),rgba(138,181,255,.45));box-shadow:0 6px 14px rgba(138,181,255,.15)}
+.hidden{display:none}
+@media(max-width:720px){
+  .summaryHeader{flex-direction:column;align-items:flex-start}
+}
 @media(max-width:720px){
   header{flex-direction:column;align-items:flex-start;gap:8px}
   .cardHeader{flex-direction:column;align-items:flex-start}
@@ -128,6 +169,18 @@ input[type="date"]{
       <input id="date" type="date" />
       <div class="small" id="status"></div>
     </div>
+
+    <section class="summary hidden" id="summary">
+      <div class="summaryHeader">
+        <div>
+          <div class="eyebrow">Daily insights</div>
+          <h2 style="margin:4px 0 0;font-size:22px">Activity statistics</h2>
+          <div class="small">Overview of everything that ran on the selected day.</div>
+        </div>
+        <div class="small" id="summaryMeta"></div>
+      </div>
+      <div class="summaryGrid" id="summaryGrid"></div>
+    </section>
 
     <div class="grid" id="runs"></div>
   </div>
@@ -156,12 +209,120 @@ function escapeHtml(s){
     .replaceAll("'","&#039;");
 }
 
+function distribution(items, total){
+  return items.map(({ label, count }) => {
+    const pct = total ? Math.round((count / total) * 100) : 0;
+    return `
+      <div class="distRow">
+        <div class="distLabel">
+          <span>${escapeHtml(label)}</span>
+          <span class="count">${count} • ${pct}%</span>
+        </div>
+        <div class="bar"><span style="width:${pct}%"></span></div>
+      </div>
+    `;
+  }).join("");
+}
+
+function summarize(runs){
+  const summary = document.getElementById("summary");
+  const grid = document.getElementById("summaryGrid");
+  const meta = document.getElementById("summaryMeta");
+
+  if (!runs.length){
+    summary.classList.add("hidden");
+    grid.innerHTML = "";
+    meta.textContent = "";
+    return;
+  }
+
+  summary.classList.remove("hidden");
+  const totalRuns = runs.length;
+  const uniqueTrains = new Set(runs.map(r => r.train_id || r.name)).size;
+  const totalMinutes = runs.reduce((acc,r) => acc + (r.duration?.minutes || 0), 0);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  meta.textContent = `${totalRuns} run${totalRuns === 1 ? "" : "s"} • ${uniqueTrains} unique train${uniqueTrains === 1 ? "" : "s"} • ${hours}h ${minutes.toString().padStart(2,"0")}m total runtime`;
+
+  const longest = runs.reduce((best, r) => {
+    if (!best || r.numberOfCars > best.numberOfCars) return r;
+    return best;
+  }, null);
+
+  const countries = [...new Set(runs.map(r => r.country))];
+  const powerCounts = Object.entries(runs.reduce((acc,r) => {
+    acc[r.power] = (acc[r.power] || 0) + 1;
+    return acc;
+  }, {})).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({label, count}));
+
+  const lengthBuckets = [
+    { label: "0–5 cars", test: (n) => n <= 5 },
+    { label: "6–10 cars", test: (n) => n >= 6 && n <= 10 },
+    { label: "11–15 cars", test: (n) => n >= 11 && n <= 15 },
+    { label: "16+ cars", test: (n) => n >= 16 }
+  ];
+  const lengthCounts = lengthBuckets.map(bucket => ({
+    label: bucket.label,
+    count: runs.filter(r => bucket.test(r.numberOfCars || 0)).length
+  }));
+
+  const powerTypeCounts = Object.entries(runs.reduce((acc,r) => {
+    acc[r.powerType] = (acc[r.powerType] || 0) + 1;
+    return acc;
+  }, {})).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({label, count}));
+
+  const railways = Object.entries(runs.reduce((acc,r) => {
+    acc[r.railway] = (acc[r.railway] || 0) + 1;
+    return acc;
+  }, {})).sort((a,b) => b[1]-a[1]);
+  const topRailway = railways[0] ? `${railways[0][0]} (${railways[0][1]} run${railways[0][1] === 1 ? "" : "s"})` : "—";
+
+  grid.innerHTML = `
+    <div class="summaryCard">
+      <div class="summaryTitle">Longest train</div>
+      ${longest ? `
+        <div class="metricValue">${escapeHtml(longest.numberOfCars ?? 0)} cars</div>
+        <div class="row small">
+          <span class="flag" aria-hidden="true">${escapeHtml(longest.country)}</span>
+          <strong>${escapeHtml(longest.name)}</strong>
+        </div>
+        <div class="small">${escapeHtml(longest.railway)} • ${escapeHtml(longest.powerType)}</div>
+      ` : `<div class="small">No data</div>`}
+    </div>
+
+    <div class="summaryCard">
+      <div class="summaryTitle">Countries represented</div>
+      <div class="countryRow">${countries.map(c => `<span title="Country">${escapeHtml(c)}</span>`).join("") || "<span class='small'>—</span>"}</div>
+      <div class="small">${countries.length || 0} countr${countries.length === 1 ? "y" : "ies"}</div>
+    </div>
+
+    <div class="summaryCard">
+      <div class="summaryTitle">Locomotive power mix</div>
+      ${distribution(powerCounts, totalRuns)}
+    </div>
+
+    <div class="summaryCard">
+      <div class="summaryTitle">Train length distribution</div>
+      ${distribution(lengthCounts, totalRuns)}
+    </div>
+
+    <div class="summaryCard">
+      <div class="summaryTitle">Power supply</div>
+      ${distribution(powerTypeCounts, totalRuns)}
+      <div class="small">Top railway: ${escapeHtml(topRailway)}</div>
+    </div>
+  `;
+}
+
 function render(runs){
   const root = document.getElementById("runs");
   if (!runs.length){
+    summarize([]);
     root.innerHTML = `<div class="empty">No train activity recorded for this date.</div>`;
     return;
   }
+
+  summarize(runs);
 
   root.innerHTML = runs.map(r => {
     const stopLabel = r.stop_time ? formatTime(r.stop_time) : "Still running";
