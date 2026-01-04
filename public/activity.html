@@ -35,8 +35,9 @@ h1{margin:0;font-size:36px;letter-spacing:-.01em}
 .page{max-width:1100px;margin:0 auto;padding:24px 18px 34px}
 .controls{
   display:flex;
-  align-items:center;
+  align-items:flex-end;
   gap:14px;
+  flex-wrap:wrap;
   background:linear-gradient(180deg,rgba(32,44,64,.65),rgba(20,30,45,.9));
   border:1px solid var(--border);
   border-radius:var(--radius);
@@ -44,6 +45,7 @@ h1{margin:0;font-size:36px;letter-spacing:-.01em}
   box-shadow:var(--shadow);
 }
 .controls label{font-size:15px;color:var(--muted)}
+.controlGroup{display:flex;flex-direction:column;gap:6px}
 input[type="date"]{
   background:rgba(255,255,255,.05);
   border:1px solid var(--border);
@@ -158,15 +160,21 @@ input[type="date"]{
   <header>
     <div>
       <h1>Train Activity</h1>
-      <div class="subtitle">View every run for a selected day.</div>
+      <div class="subtitle">View every run for a selected date range.</div>
     </div>
     <a class="subtitle" href="/">← Back to live display</a>
   </header>
 
   <div class="page">
     <div class="controls">
-      <label for="date">Choose a date</label>
-      <input id="date" type="date" />
+      <div class="controlGroup">
+        <label for="start">Start date</label>
+        <input id="start" type="date" />
+      </div>
+      <div class="controlGroup">
+        <label for="end">End date</label>
+        <input id="end" type="date" />
+      </div>
       <div class="small" id="status"></div>
     </div>
 
@@ -175,7 +183,7 @@ input[type="date"]{
         <div>
           <div class="eyebrow">Daily insights</div>
           <h2 style="margin:4px 0 0;font-size:22px">Activity statistics</h2>
-          <div class="small">Overview of everything that ran on the selected day.</div>
+          <div class="small">Overview of everything that ran in the selected date range.</div>
         </div>
         <div class="small" id="summaryMeta"></div>
       </div>
@@ -199,6 +207,8 @@ function formatTime(iso){
   if (!iso) return "—";
   return new Date(iso).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
 }
+
+let currentRangeLabel = "";
 
 function escapeHtml(s){
   return String(s)
@@ -242,24 +252,28 @@ function summarize(runs){
   const totalMinutes = runs.reduce((acc,r) => acc + (r.duration?.minutes || 0), 0);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  meta.textContent = `${totalRuns} run${totalRuns === 1 ? "" : "s"} • ${uniqueTrains} unique train${uniqueTrains === 1 ? "" : "s"} • ${hours}h ${minutes.toString().padStart(2,"0")}m total runtime`;
+  meta.textContent = `${currentRangeLabel ? `${currentRangeLabel} • ` : ""}${totalRuns} run${totalRuns === 1 ? "" : "s"} • ${uniqueTrains} unique train${uniqueTrains === 1 ? "" : "s"} • ${hours}h ${minutes.toString().padStart(2,"0")}m total runtime`;
 
   const longest = runs.reduce((best, r) => {
     if (!best || r.numberOfCars > best.numberOfCars) return r;
     return best;
   }, null);
 
-  const countries = [...new Set(runs.map(r => r.country))];
+  const countryCounts = Object.entries(runs.reduce((acc, r) => {
+    acc[r.country] = (acc[r.country] || 0) + 1;
+    return acc;
+  }, {})).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({label, count}));
   const powerCounts = Object.entries(runs.reduce((acc,r) => {
     acc[r.power] = (acc[r.power] || 0) + 1;
     return acc;
   }, {})).sort((a,b) => b[1]-a[1]).map(([label,count]) => ({label, count}));
 
   const lengthBuckets = [
-    { label: "0–5 cars", test: (n) => n <= 5 },
-    { label: "6–10 cars", test: (n) => n >= 6 && n <= 10 },
-    { label: "11–15 cars", test: (n) => n >= 11 && n <= 15 },
-    { label: "16+ cars", test: (n) => n >= 16 }
+    { label: "0–2 cars", test: (n) => n >= 0 && n <= 2 },
+    { label: "2–5 cars", test: (n) => n > 2 && n <= 5 },
+    { label: "5–10 cars", test: (n) => n > 5 && n <= 10 },
+    { label: "10–20 cars", test: (n) => n > 10 && n <= 20 },
+    { label: "20+ cars", test: (n) => n > 20 }
   ];
   const lengthCounts = lengthBuckets.map(bucket => ({
     label: bucket.label,
@@ -292,8 +306,7 @@ function summarize(runs){
 
     <div class="summaryCard">
       <div class="summaryTitle">Countries represented</div>
-      <div class="countryRow">${countries.map(c => `<span title="Country">${escapeHtml(c)}</span>`).join("") || "<span class='small'>—</span>"}</div>
-      <div class="small">${countries.length || 0} countr${countries.length === 1 ? "y" : "ies"}</div>
+      ${countryCounts.length ? distribution(countryCounts, totalRuns) : `<div class="small">No data</div>`}
     </div>
 
     <div class="summaryCard">
@@ -318,7 +331,7 @@ function render(runs){
   const root = document.getElementById("runs");
   if (!runs.length){
     summarize([]);
-    root.innerHTML = `<div class="empty">No train activity recorded for this date.</div>`;
+    root.innerHTML = `<div class="empty">No train activity recorded for this date range.</div>`;
     return;
   }
 
@@ -359,28 +372,64 @@ function render(runs){
   }).join("");
 }
 
-async function loadRuns(date){
+async function loadRuns(start, end){
   const status = document.getElementById("status");
+  const runsRoot = document.getElementById("runs");
+
+  if (!start || !end){
+    status.textContent = "Choose a start and end date.";
+    return;
+  }
+
+  if (start > end){
+    status.textContent = "Start date must be before or the same as end date.";
+    currentRangeLabel = "";
+    summarize([]);
+    runsRoot.innerHTML = `<div class="empty error">Start date must be before or the same as end date.</div>`;
+    return;
+  }
+
   status.textContent = "Loading…";
+  currentRangeLabel = "";
   try{
-    const res = await fetch(`/api/reports/runs?date=${encodeURIComponent(date)}`);
+    const res = await fetch(`/api/reports/runs?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
     if (!res.ok) throw new Error("Unable to load runs");
     const data = await res.json();
+    const label = start === end ? start : `${start} → ${end}`;
+    currentRangeLabel = label;
     render(data.runs || []);
-    status.textContent = `Showing activity for ${date}`;
+    status.textContent = `Showing activity for ${label}`;
   }catch(e){
-    document.getElementById("runs").innerHTML = `<div class="empty error">${escapeHtml(e.message)}</div>`;
+    runsRoot.innerHTML = `<div class="empty error">${escapeHtml(e.message)}</div>`;
     status.textContent = "";
+    currentRangeLabel = "";
+    summarize([]);
   }
 }
 
-const dateInput = document.getElementById("date");
-dateInput.value = toLocalDateInput();
-dateInput.addEventListener("change", (ev) => {
-  if (ev.target.value) loadRuns(ev.target.value);
+const startInput = document.getElementById("start");
+const endInput = document.getElementById("end");
+
+const today = toLocalDateInput();
+startInput.value = today;
+endInput.value = today;
+
+function triggerLoad(){
+  if (startInput.value && endInput.value){
+    loadRuns(startInput.value, endInput.value);
+  }
+}
+
+startInput.addEventListener("change", (ev) => {
+  if (endInput.value && ev.target.value > endInput.value){
+    endInput.value = ev.target.value;
+  }
+  triggerLoad();
 });
 
-loadRuns(dateInput.value);
+endInput.addEventListener("change", () => triggerLoad());
+
+triggerLoad();
 </script>
 </body>
 </html>
